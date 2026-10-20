@@ -9,7 +9,7 @@
 1. 把仓库放到本机任意目录：
 
    ```powershell
-   git clone https://github.com/<owner>/dsh-desktop-notify.git
+   git clone https://github.com/3493750852/dsh-desktop-notify.git
    ```
 
 2. 把这个目录装进 DSH 的 profile：在 DSH 会话里让 agent 用 `plugin_manager` 的 `install_bundle` 安装它，`target` 填这个目录的绝对路径。装好即生效，配置行会写进 profile 的 `cordis.patch.yml`。
