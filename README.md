@@ -90,9 +90,12 @@ Windows 10/11 上它是一条标准通知（托盘气泡，系统会渲染进通
 | `clickAction` | `focus` | 点通知时：`focus` 叫回 DSH 窗口 / `url` 用浏览器打开 / `none` 只关掉 |
 | `appProcessName` | `DeepSeek Harness` | 桌面进程名，用来取它自己的图标、点击时叫回窗口 |
 | `dwellSeconds` | `8` | 通知可点击（托盘图标存在）的秒数 |
+| `selfTest` | `false` | 改成 `true` 重载插件，会立刻弹一条自检通知（验证安装用） |
+| `debug` | `false` | 把每次通知的判定过程写进 `%TEMP%\dsh-windows-notify.log` |
 
 ## 收不到通知时
 
+0. **先做自检**：把 `selfTest` 改成 `true` 重载插件（或重启 DSH）。能弹出「通知自检：插件已加载」说明插件和系统通知都正常，问题在触发条件；弹不出来就再打开 `debug`，看 `%TEMP%\dsh-windows-notify.log` 里 `shim exit ... after=...ms` 这一行 —— 正常应该是几千毫秒，如果只有几十毫秒，说明 PowerShell 没能真正跑起来。
 1. **Windows 通知总开关**：设置 → 系统 → 通知，确认「通知」是开的。
 2. **专注助手 / 勿扰**：开着的时候通知会进通知中心但不弹横幅，不会响。
 3. **通知中心里有没有**：按 `Win + N` 看历史。有记录但没弹出来，基本就是专注助手。

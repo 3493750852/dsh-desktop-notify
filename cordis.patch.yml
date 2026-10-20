@@ -27,3 +27,7 @@
         clickAction: focus
         # DSH 桌面进程名，用来取它自己的图标、并在点击时把窗口叫到前台
         appProcessName: "DeepSeek Harness"
+        # 排查用：把每次通知的判定过程追加到 %TEMP%\dsh-windows-notify.log
+        debug: false
+        # 装好后想立刻验一下，把它改成 true 再重载插件，会马上弹一条自检通知
+        selfTest: false

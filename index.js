@@ -8,7 +8,7 @@
  *   3. the task ended — the turn closed, or it failed.
  *
  * Host-only bundle: no Client half, no network, no runtime dependencies. A
- * notification is one detached PowerShell process that shows a tray balloon
+ * notification is one short-lived PowerShell process that shows a tray balloon
  * (rendered as a toast by Windows 10/11) and exits.
  *
  * The two prompts are ordinary waterfall events, so this plugin never claims a
@@ -24,6 +24,7 @@
  */
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -55,6 +56,10 @@ const DEFAULTS = {
   appProcessName: 'DeepSeek Harness',
   // How long the notification stays clickable (also how long its tray icon lives).
   dwellSeconds: 8,
+  // Opt-in diagnostics: append every decision to dsh-windows-notify.log in the temp dir.
+  debug: false,
+  // Show one notification right after the plugin loads (install check).
+  selfTest: false,
 }
 
 const COPY = {
@@ -159,9 +164,22 @@ export function apply(ctx, config) {
   }
 
   const t = copyFor(cfg.language)
-  const inflight = new Set()
+  /** Running shim → its watchdog timer. A shim that never exits must not hold a slot. */
+  const inflight = new Map()
   const lastShownAt = new Map()
   let warnings = 0
+
+  const DEBUG_PATH = path.join(os.tmpdir(), 'dsh-windows-notify.log')
+
+  /** Opt-in trace of every notification decision; never allowed to throw. */
+  function debugLog(line) {
+    if (!cfg.debug) return
+    try {
+      const stats = fs.statSync(DEBUG_PATH, { throwIfNoEntry: false })
+      if (stats && stats.size > 256 * 1024) fs.writeFileSync(DEBUG_PATH, '')
+      fs.appendFileSync(DEBUG_PATH, `${new Date().toISOString()} ${line}\n`)
+    } catch (error) { /* diagnostics must never break notifications */ }
+  }
 
   /**
    * The desktop application's executable, when this Host runs inside it. The
@@ -199,6 +217,8 @@ export function apply(ctx, config) {
     console.warn('[desktop-notify] ' + message)
   }
 
+  debugLog(`apply platform=${process.platform} script=${SCRIPT_PATH} exe=${appExe || '-'} url=${guiUrl || '-'} cwd=${process.cwd()} config=${JSON.stringify(cfg)}`)
+
   /**
    * Fire one notification. Never throws: a notification that cannot be shown
    * must not disturb the approval / question / turn it is reporting on.
@@ -207,10 +227,17 @@ export function apply(ctx, config) {
     try {
       if (!cfg.enabled) return
       const now = Date.now()
-      if (now - (lastShownAt.get(kind) || 0) < cfg.coalesceMs) return
+      if (now - (lastShownAt.get(kind) || 0) < cfg.coalesceMs) {
+        debugLog(`skip ${kind}: coalesced (${title})`)
+        return
+      }
+      if (inflight.size >= cfg.maxConcurrent) {
+        debugLog(`skip ${kind}: ${inflight.size} notification processes still running (${title})`)
+        return
+      }
       lastShownAt.set(kind, now)
-      if (inflight.size >= cfg.maxConcurrent) return
 
+      const dwell = Math.max(1000, Math.round((Number(cfg.dwellSeconds) || 8) * 1000))
       const payload = Buffer.from(JSON.stringify({
         title: String(title || ''),
         body: String(body || ''),
@@ -220,9 +247,15 @@ export function apply(ctx, config) {
         appProcessName: cfg.appProcessName,
         exePath: appExe,
         url: guiUrl,
-        dwellMs: Math.max(1000, Math.round((Number(cfg.dwellSeconds) || 8) * 1000)),
+        dwellMs: dwell,
       }), 'utf8').toString('base64')
 
+      const startedAt = Date.now()
+      // Never `detached: true`: on Windows that turns into DETACHED_PROCESS, and a
+      // PowerShell started that way dies within ~50ms with exit code 0 and no
+      // output — a perfectly silent no-op. `unref()` already keeps the child from
+      // holding the Host's event loop open, which is all that was wanted.
+      // stdio stays ignored unless debugging, so a slow shim cannot hold pipes.
       const child = spawn(cfg.powershellPath, [
         '-NoProfile',
         '-NonInteractive',
@@ -230,18 +263,54 @@ export function apply(ctx, config) {
         '-ExecutionPolicy', 'Bypass',
         '-File', SCRIPT_PATH,
         '-PayloadBase64', payload,
-      ], { detached: true, stdio: 'ignore', windowsHide: true })
+      ], {
+        stdio: cfg.debug ? ['ignore', 'pipe', 'pipe'] : 'ignore',
+        windowsHide: true,
+      })
 
-      inflight.add(child)
-      child.on('error', (error) => {
+      // Keep the child's own words: a shim that dies in milliseconds is almost
+      // always a PowerShell startup error, and dropping stderr makes it invisible.
+      let stdoutText = ''
+      let stderrText = ''
+      if (child.stdout) child.stdout.on('data', (chunk) => { stdoutText = (stdoutText + chunk.toString()).slice(0, 2000) })
+      if (child.stderr) child.stderr.on('data', (chunk) => { stderrText = (stderrText + chunk.toString()).slice(0, 2000) })
+
+      // A shim that never exits would otherwise hold a slot forever and silently
+      // disable every later notification, so each one carries its own deadline.
+      const watchdog = setTimeout(() => {
+        try { child.kill() } catch (error) { /* already gone */ }
         inflight.delete(child)
+        debugLog(`watchdog: killed a shim that outlived ${dwell + 30000}ms`)
+      }, dwell + 30000)
+      if (typeof watchdog.unref === 'function') watchdog.unref()
+
+      inflight.set(child, watchdog)
+      debugLog(`show ${kind}: ${title} | ${body} | pid=${child.pid} cwd=${process.cwd()}`)
+      child.on('error', (error) => {
+        const timer = inflight.get(child)
+        if (timer) clearTimeout(timer)
+        inflight.delete(child)
+        debugLog(`spawn failed: ${error && error.message}`)
         warnOnce('could not start ' + cfg.powershellPath + ': ' + (error && error.message))
       })
-      child.on('exit', () => { inflight.delete(child) })
+      child.on('exit', (code, signal) => {
+        const timer = inflight.get(child)
+        if (timer) clearTimeout(timer)
+        inflight.delete(child)
+        const took = Date.now() - startedAt
+        debugLog(`shim exit code=${code} signal=${signal} after=${took}ms stderr=${stderrText.trim() || '-'} stdout=${stdoutText.trim() || '-'}`)
+      })
       child.unref()
     } catch (error) {
+      debugLog(`show threw: ${error && error.message}`)
       warnOnce('notification failed: ' + (error && error.message))
     }
+  }
+
+  // Install check: one notification right after load, so "is the pipeline alive?"
+  // is answerable without waiting for a turn or an approval.
+  if (cfg.selfTest) {
+    setTimeout(() => show('done', t.doneTitle, '通知自检：插件已加载'), 800)
   }
 
   // A notification is only worth showing if the request actually waited for a
@@ -253,9 +322,39 @@ export function apply(ctx, config) {
     return timer
   }
 
-  // Requests currently waiting on a human: while one is open, a turn that
-  // closes is an interruption, not a finished task, so its notification is held.
-  let waiting = 0
+  // Requests currently waiting on a human: while one is open, a turn that closes
+  // is an interruption, not a finished task, so its notification is held.
+  //
+  // Entries are removed when the request settles, when its abort signal fires, or
+  // after MAX_PENDING_MS. A promise that never settles (the page was reloaded
+  // while a question was on screen, say) must not mute every later notification —
+  // that is exactly how a global counter silently disabled this plugin once.
+  const MAX_PENDING_MS = 30 * 60 * 1000
+  const pendingInteractions = new Map()
+  let pendingSeq = 0
+
+  function beginWait(signal) {
+    const id = ++pendingSeq
+    pendingInteractions.set(id, Date.now())
+    if (signal && typeof signal.addEventListener === 'function') {
+      try {
+        signal.addEventListener('abort', () => pendingInteractions.delete(id), { once: true })
+      } catch (error) { /* no signal support */ }
+    }
+    return id
+  }
+
+  function endWait(id) {
+    pendingInteractions.delete(id)
+  }
+
+  function isWaiting() {
+    const now = Date.now()
+    for (const [id, at] of pendingInteractions) {
+      if (now - at > MAX_PENDING_MS) pendingInteractions.delete(id)
+    }
+    return pendingInteractions.size > 0
+  }
 
   if (cfg.confirm || cfg.answered) {
     ctx.on('approval/request', async (req, next) => {
@@ -264,7 +363,7 @@ export function apply(ctx, config) {
       const timer = cfg.confirm
         ? armPrompt('approval', t.approvalTitle, t.approvalBody(tool, approvalReason(req, cfg.language)))
         : null
-      waiting += 1
+      const waitId = beginWait(req && req.signal)
       try {
         const outcome = await next()
         if (timer) clearTimeout(timer)
@@ -274,7 +373,7 @@ export function apply(ctx, config) {
         return outcome
       } finally {
         if (timer) clearTimeout(timer)
-        waiting = Math.max(0, waiting - 1)
+        endWait(waitId)
       }
     })
 
@@ -284,7 +383,7 @@ export function apply(ctx, config) {
       const timer = cfg.confirm
         ? armPrompt('question', t.questionTitle, t.questionBody(summary.text || t.questionFallback, summary.count))
         : null
-      waiting += 1
+      const waitId = beginWait(request && request.signal)
       try {
         const answer = await next()
         if (timer) clearTimeout(timer)
@@ -294,7 +393,7 @@ export function apply(ctx, config) {
         return answer
       } finally {
         if (timer) clearTimeout(timer)
-        waiting = Math.max(0, waiting - 1)
+        endWait(waitId)
       }
     })
   }
@@ -346,6 +445,7 @@ export function apply(ctx, config) {
         if (!id) return
         if (type === 'turn/start') {
           turnStarts.set(id, Date.now())
+          debugLog(`turn/start ${id}`)
           return
         }
         if (type !== 'turn/end') return
@@ -354,14 +454,24 @@ export function apply(ctx, config) {
         turnStarts.delete(id)
         const failure = turnErrors.get(id) || ''
         turnErrors.delete(id)
+        debugLog(`turn/end ${id} started=${startedAt ? 'yes' : 'no'} failure=${failure || 'none'}`)
 
-        if (cfg.hideWhenSubagent && subagentSessions.has(id)) return
-        if (waiting > 0) return
+        if (cfg.hideWhenSubagent && subagentSessions.has(id)) {
+          debugLog('skip done: subagent session')
+          return
+        }
+        if (isWaiting()) {
+          debugLog('skip done: a request is still waiting for the user')
+          return
+        }
         // A turn this plugin did not watch begin still counts as finished; only
         // its duration is unknown, so the short-task filter cannot be applied.
         if (startedAt) {
           const elapsed = Date.now() - startedAt
-          if (elapsed < (Number(cfg.taskEndMinSeconds) || 0) * 1000) return
+          if (elapsed < (Number(cfg.taskEndMinSeconds) || 0) * 1000) {
+            debugLog(`skip done: turn lasted ${Math.round(elapsed / 1000)}s, below taskEndMinSeconds`)
+            return
+          }
           if (failure && !cfg.taskError) return
           if (failure) {
             show('error', t.errorTitle, t.errorMeta(sessionTitle(session), failure))
@@ -377,6 +487,7 @@ export function apply(ctx, config) {
           show('done', t.doneTitle, t.doneMeta(sessionTitle(session), ''))
         }
       } catch (error) {
+        debugLog(`turn handling failed: ${error && error.message}`)
         warnOnce('turn handling failed: ' + (error && error.message))
       }
     })
