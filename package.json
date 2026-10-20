@@ -1,6 +1,6 @@
 {
   "name": "dsh-windows-notify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Windows 系统通知：需要你确认时、你作出回答后、任务结束时各弹一条桌面通知。",
   "keywords": [
     "dsh",
@@ -35,7 +35,9 @@
     "README.md"
   ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" }
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
   },
   "license": "MIT"
 }
