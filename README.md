@@ -6,23 +6,13 @@
 
 ## 安装
 
-### 从 npm（推荐）
-
-在 DSH 会话里让 agent 用 `plugin_manager` 的 `install_bundle` 安装包名 `dsh-windows-notify`，它会从 npm 装进当前 profile 并写好配置行：
-
-```powershell
-npm install dsh-windows-notify   # 也可以自己装进 profile，再用 install_bundle 启用
-```
-
-### 从源码
-
 1. 把仓库放到本机任意目录：
 
    ```powershell
    git clone https://github.com/3493750852/dsh-windows-notify.git
    ```
 
-2. 让 agent 用 `install_bundle` 安装这个目录的绝对路径。
+2. 让 agent 用 `plugin_manager` 的 `install_bundle` 安装这个目录的绝对路径，它会装进当前 profile 并写好配置行。
 
 3. 验证：随便发一条消息，本轮结束时应该收到「任务完成」通知；点它应该回到 DSH 窗口。
 
