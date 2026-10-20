@@ -1,7 +1,6 @@
 {
-  "name": "dsh-desktop-notify",
+  "name": "dsh-windows-notify",
   "version": "1.0.0",
-  "private": true,
   "description": "Windows 系统通知：需要你确认时、你作出回答后、任务结束时各弹一条桌面通知。",
   "keywords": [
     "dsh",
@@ -14,11 +13,11 @@
   "author": "Yxkzx",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/3493750852/dsh-desktop-notify.git"
+    "url": "git+https://github.com/3493750852/dsh-windows-notify.git"
   },
-  "homepage": "https://github.com/3493750852/dsh-desktop-notify#readme",
+  "homepage": "https://github.com/3493750852/dsh-windows-notify#readme",
   "bugs": {
-    "url": "https://github.com/3493750852/dsh-desktop-notify/issues"
+    "url": "https://github.com/3493750852/dsh-windows-notify/issues"
   },
   "type": "module",
   "main": "index.js",

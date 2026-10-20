@@ -1,5 +1,5 @@
 /**
- * dsh-desktop-notify — Windows system notifications for the three moments a
+ * dsh-windows-notify — Windows system notifications for the three moments a
  * Harness session needs you back at the keyboard:
  *
  *   1. something is waiting for you — an approval request or an

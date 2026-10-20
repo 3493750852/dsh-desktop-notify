@@ -1,6 +1,6 @@
 #requires -Version 5.1
 <#
-    dsh-desktop-notify — notification shim.
+    dsh-windows-notify — notification shim.
 
     Started detached and hidden by index.js, once per notification. It shows one
     Windows notification (a tray balloon, which Windows 10/11 renders as a toast

@@ -1,8 +1,8 @@
-# dsh-desktop-notify: Windows 桌面通知（需要你确认 / 你已回答 / 任务结束）。
+# dsh-windows-notify: Windows 桌面通知（需要你确认 / 你已回答 / 任务结束）。
 # 所有键都可省略；这里写出来只是为了让你在一个地方看到全部开关。
 - insert:
-    - id: dsh-desktop-notify
-      name: dsh-desktop-notify
+    - id: dsh-windows-notify
+      name: dsh-windows-notify
       config:
         # 总开关
         enabled: true
