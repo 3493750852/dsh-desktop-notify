@@ -1,0 +1,29 @@
+# dsh-desktop-notify: Windows 桌面通知（需要你确认 / 你已回答 / 任务结束）。
+# 所有键都可省略；这里写出来只是为了让你在一个地方看到全部开关。
+- insert:
+    - id: dsh-desktop-notify
+      name: dsh-desktop-notify
+      config:
+        # 总开关
+        enabled: true
+        # 三个触发点
+        confirm: true # 需要你确认（授权请求）/ 需要你回答（ask_user_question）
+        answered: true # 你回答之后（已允许 / 已拒绝 / 选择了什么）
+        taskEnd: true # 任务结束
+        taskError: true # 任务因报错结束时也提示（文案变成「任务出错」）
+        # 表现
+        sound: true # 是否播放系统提示音
+        language: zh # 通知文案语言：zh 或 en
+        showSessionTitle: true # 任务结束通知里带上会话标题
+        # 频率控制
+        taskEndMinSeconds: 8 # 一轮任务短于这个秒数就不提示（避免秒回也弹通知）
+        interactionDelayMs: 1200 # 请求挂起超过这个毫秒数才算「真的在等你」，自动应答的请求不提示
+        hideWhenSubagent: true # 子智能体结束时静默
+        # 进程
+        powershellPath: powershell.exe
+        maxConcurrent: 3
+        coalesceMs: 700
+        # 点通知时：focus=把 DSH 窗口叫到前台（默认）；url=用浏览器打开界面；none=只关掉
+        clickAction: focus
+        # DSH 桌面进程名，用来取它自己的图标、并在点击时把窗口叫到前台
+        appProcessName: "DeepSeek Harness"

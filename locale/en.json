@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Desktop Notifications",
+    "description": "Shows a Windows system notification when a confirmation is waiting for you, after you answer, and when a task finishes."
+  }
+}

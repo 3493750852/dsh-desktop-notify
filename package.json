@@ -1,0 +1,42 @@
+{
+  "name": "dsh-desktop-notify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows 系统通知：需要你确认时、你作出回答后、任务结束时各弹一条桌面通知。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "notification",
+    "windows",
+    "toast"
+  ],
+  "author": "Yxkzx",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/3493750852/dsh-desktop-notify.git"
+  },
+  "homepage": "https://github.com/3493750852/dsh-desktop-notify#readme",
+  "bugs": {
+    "url": "https://github.com/3493750852/dsh-desktop-notify/issues"
+  },
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "notify.ps1",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Desktop notification bell">
+  <rect x="0" y="0" width="64" height="64" rx="15" fill="#4D6BFE"/>
+  <path d="M32 12.5c-6.9 0-12.5 5.6-12.5 12.5v7.2l-3.5 6a2 2 0 0 0 1.7 3h28.6a2 2 0 0 0 1.7-3l-3.5-6V25c0-6.9-5.6-12.5-12.5-12.5z" fill="#FFFFFF"/>
+  <path d="M26 44.5a6 6 0 0 0 12 0z" fill="#FFFFFF"/>
+  <circle cx="46" cy="18" r="6.5" fill="#FF6B6B" stroke="#4D6BFE" stroke-width="3"/>
+</svg>
